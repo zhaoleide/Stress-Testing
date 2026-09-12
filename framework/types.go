@@ -91,7 +91,13 @@ type StageStats struct {
 	AvgLatency      time.Duration `json:"avg_latency"`      // 平均延迟
 	MaxLatency      time.Duration `json:"max_latency"`      // 最大延迟
 	MinLatency      time.Duration `json:"min_latency"`      // 最小延迟
+	P50             time.Duration `json:"p50"`              // 50 分位延迟
+	P90             time.Duration `json:"p90"`              // 90 分位延迟
+	P95             time.Duration `json:"p95"`              // 95 分位延迟
+	P99             time.Duration `json:"p99"`              // 99 分位延迟
 	QPS             float64       `json:"qps"`              // 每秒请求数
+	StatusCounts    map[int]int   `json:"status_counts"`    // HTTP 状态码分布
+	ErrorClasses    map[string]int `json:"error_classes"`    // 错误分类计数
 }
 
 // SystemMetrics 系统指标
