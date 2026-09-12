@@ -1,0 +1,21 @@
+# Binaries / local
+/stress-testing
+*.exe
+*.test
+*.out
+
+# Reports & local secrets
+/reports/
+*.log
+.env
+.env.*
+secrets.yaml
+secrets.json
+*.pem
+*.key
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
