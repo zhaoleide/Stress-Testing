@@ -29,21 +29,28 @@ func (s *countingStage) Execute(ctx context.Context, userCtx *Context) (*Result,
 }
 
 type stubScenario struct {
-	stages []Stage
-	cfg    *Config
+	stages         []Stage
+	cfg            *Config
+	afterRunStages int
 }
 
-func (s *stubScenario) Name() string                  { return "stub" }
-func (s *stubScenario) Description() string           { return "test scenario" }
-func (s *stubScenario) Stages() []Stage               { return s.stages }
-func (s *stubScenario) Config() *Config               { return s.cfg }
-func (s *stubScenario) Validate(*Config) error        { return nil }
-func (s *stubScenario) BeforeRun(*Config) error       { return nil }
-func (s *stubScenario) AfterRun([]*StageResult) error { return nil }
+func (s *stubScenario) Name() string        { return "stub" }
+func (s *stubScenario) Description() string { return "test scenario" }
+func (s *stubScenario) Stages() []Stage     { return s.stages }
+func (s *stubScenario) Config() *Config     { return s.cfg }
+func (s *stubScenario) Validate(*Config) error {
+	return nil
+}
+func (s *stubScenario) BeforeRun(*Config) error { return nil }
+func (s *stubScenario) AfterRun(results []*StageResult) error {
+	s.afterRunStages = len(results)
+	return nil
+}
 
 func TestEngineRequestsModeStopsAtCount(t *testing.T) {
 	stage := &countingStage{name: "count"}
-	engine := NewEngine(&stubScenario{stages: []Stage{stage}})
+	sc := &stubScenario{stages: []Stage{stage}}
+	engine := NewEngine(sc)
 	engine.SetReporter(&noopReporter{})
 	cfg := &Config{
 		Mode:        LoadModeRequests,
@@ -59,6 +66,9 @@ func TestEngineRequestsModeStopsAtCount(t *testing.T) {
 	results := engine.GetResults()
 	if len(results) != 1 || results[0].Stats.TotalRequests != 8 {
 		t.Fatalf("results = %#v", results)
+	}
+	if sc.afterRunStages != 1 {
+		t.Fatalf("AfterRun should see completed stages, got %d", sc.afterRunStages)
 	}
 }
 

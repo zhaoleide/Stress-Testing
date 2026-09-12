@@ -53,7 +53,9 @@ func (e *Engine) Run(config *Config) error {
 	if err := e.scenario.BeforeRun(config); err != nil {
 		return fmt.Errorf("运行前回调失败: %w", err)
 	}
-	defer e.scenario.AfterRun(e.results)
+	defer func() {
+		_ = e.scenario.AfterRun(e.GetResults())
+	}()
 
 	if setter, ok := e.reporter.(interface{ SetOutputDir(string) }); ok && config.ReportDir != "" {
 		setter.SetOutputDir(config.ReportDir)
