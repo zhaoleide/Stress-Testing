@@ -1,0 +1,26 @@
+{
+  "name": "http-post-example",
+  "target": {
+    "base_url": "https://httpbin.org",
+    "path": "/post",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": "{\"message\":\"hello\"}",
+    "timeout": "10s",
+    "insecure_skip_verify": false
+  },
+  "load": {
+    "mode": "duration",
+    "duration": "5s",
+    "concurrency": 2
+  },
+  "monitor": {
+    "enabled": false
+  },
+  "report": {
+    "formats": ["html", "json", "csv"],
+    "dir": "reports"
+  }
+}

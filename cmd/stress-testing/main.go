@@ -1,13 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"stress-testing/internal/cli"
 )
 
 func main() {
-	fmt.Fprintln(os.Stderr, "note: prefer `go run ./cmd/stress-testing` as the supported entrypoint")
 	os.Exit(cli.Main(os.Args[1:], os.Stdout, os.Stderr))
 }

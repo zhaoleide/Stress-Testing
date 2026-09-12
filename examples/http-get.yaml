@@ -1,0 +1,22 @@
+name: http-get-example
+target:
+  base_url: https://example.com
+  path: /
+  method: GET
+  headers:
+    Accept: text/html
+  timeout: 10s
+  insecure_skip_verify: false
+
+load:
+  mode: requests
+  requests: 20
+  concurrency: 5
+  # rate: 10
+
+monitor:
+  enabled: false
+
+report:
+  formats: [html, json, csv]
+  dir: reports
