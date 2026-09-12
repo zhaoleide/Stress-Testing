@@ -1,0 +1,32 @@
+# Example login-style POST. Secrets come from the environment only.
+#   export TOKEN=replace-me
+#   export LOGIN_PASSWORD=replace-me
+name: login-example
+target:
+  base_url: https://example.com
+  path: /apiv2/login
+  method: POST
+  headers:
+    Content-Type: application/json
+    Authorization: "Bearer ${TOKEN}"
+  body: '{"username":"demo","password":"${LOGIN_PASSWORD}"}'
+  timeout: 10s
+  insecure_skip_verify: false
+
+load:
+  mode: requests
+  requests: 50
+  concurrency: 5
+
+monitor:
+  enabled: false
+  host: ""
+  username: ""
+  password: "${SSH_PASSWORD}"
+  private_key: ""
+  interval: 2s
+  metrics: [cpu, memory, disk, network]
+
+report:
+  formats: [html, json, csv]
+  dir: reports
