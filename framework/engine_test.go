@@ -13,7 +13,7 @@ type countingStage struct {
 	delay time.Duration
 }
 
-func (s *countingStage) Name() string { return s.name }
+func (s *countingStage) Name() string          { return s.name }
 func (s *countingStage) Prepare(*Config) error { return nil }
 func (s *countingStage) Cleanup() error        { return nil }
 func (s *countingStage) Execute(ctx context.Context, userCtx *Context) (*Result, error) {
@@ -33,13 +33,13 @@ type stubScenario struct {
 	cfg    *Config
 }
 
-func (s *stubScenario) Name() string                        { return "stub" }
-func (s *stubScenario) Description() string                 { return "test scenario" }
-func (s *stubScenario) Stages() []Stage                     { return s.stages }
-func (s *stubScenario) Config() *Config                     { return s.cfg }
-func (s *stubScenario) Validate(*Config) error              { return nil }
-func (s *stubScenario) BeforeRun(*Config) error             { return nil }
-func (s *stubScenario) AfterRun([]*StageResult) error       { return nil }
+func (s *stubScenario) Name() string                  { return "stub" }
+func (s *stubScenario) Description() string           { return "test scenario" }
+func (s *stubScenario) Stages() []Stage               { return s.stages }
+func (s *stubScenario) Config() *Config               { return s.cfg }
+func (s *stubScenario) Validate(*Config) error        { return nil }
+func (s *stubScenario) BeforeRun(*Config) error       { return nil }
+func (s *stubScenario) AfterRun([]*StageResult) error { return nil }
 
 func TestEngineRequestsModeStopsAtCount(t *testing.T) {
 	stage := &countingStage{name: "count"}

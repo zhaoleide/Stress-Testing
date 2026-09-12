@@ -102,7 +102,7 @@ func (r *DefaultReporter) generateJSONReport(results []*StageResult, metrics []*
 // generateHTMLReport 生成HTML报告
 func (r *DefaultReporter) generateHTMLReport(results []*StageResult, metrics []*SystemMetrics, timestamp string) error {
 	html := r.buildHTMLContent(results, metrics, timestamp)
-	
+
 	filename := filepath.Join(r.outputDir, fmt.Sprintf("report_%s.html", timestamp))
 	return os.WriteFile(filename, []byte(html), 0644)
 }
@@ -110,7 +110,7 @@ func (r *DefaultReporter) generateHTMLReport(results []*StageResult, metrics []*
 // generateCSVReport 生成CSV统计报告
 func (r *DefaultReporter) generateCSVReport(results []*StageResult, timestamp string) error {
 	var csv strings.Builder
-	
+
 	csv.WriteString("Stage,TotalRequests,SuccessRequests,FailedRequests,SuccessRate,AvgLatency(ms),MinLatency(ms),MaxLatency(ms),P50(ms),P90(ms),P95(ms),P99(ms),QPS,Duration(s)\n")
 
 	for _, result := range results {
@@ -155,17 +155,17 @@ func (r *DefaultReporter) generateSummary(results []*StageResult) map[string]int
 		totalDuration += result.Duration
 
 		stageInfo := map[string]interface{}{
-			"name":         result.StageName,
-			"success_rate": stats.SuccessRate,
-			"qps":          stats.QPS,
-			"avg_latency":  stats.AvgLatency.String(),
-			"p50":          stats.P50.String(),
-			"p90":          stats.P90.String(),
-			"p95":          stats.P95.String(),
-			"p99":          stats.P99.String(),
+			"name":          result.StageName,
+			"success_rate":  stats.SuccessRate,
+			"qps":           stats.QPS,
+			"avg_latency":   stats.AvgLatency.String(),
+			"p50":           stats.P50.String(),
+			"p90":           stats.P90.String(),
+			"p95":           stats.P95.String(),
+			"p99":           stats.P99.String(),
 			"status_counts": stats.StatusCounts,
 			"error_classes": stats.ErrorClasses,
-			"data_count":   len(result.Data),
+			"data_count":    len(result.Data),
 		}
 		summary["stages"] = append(summary["stages"].([]map[string]interface{}), stageInfo)
 	}
@@ -208,10 +208,10 @@ func (r *DefaultReporter) generateSummary(results []*StageResult) map[string]int
 func (r *DefaultReporter) processDataForHTML(results []*StageResult, timestamp string) map[string]string {
 	summary := r.generateSummary(results)
 	overall := summary["overall"].(map[string]interface{})
-	
+
 	// 安全地提取数据并格式化为字符串
 	data := make(map[string]string)
-	
+
 	data["timestamp"] = timestamp
 	data["total_stages"] = fmt.Sprintf("%d", summary["total_stages"].(int))
 	data["total_requests"] = fmt.Sprintf("%d", overall["total_requests"].(int))
@@ -234,7 +234,7 @@ func ms(d time.Duration) float64 {
 func (r *DefaultReporter) buildHTMLContent(results []*StageResult, metrics []*SystemMetrics, timestamp string) string {
 	// 后台预处理数据，避免前端格式化错误
 	processedData := r.processDataForHTML(results, timestamp)
-	
+
 	html := fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
@@ -312,8 +312,8 @@ func (r *DefaultReporter) buildHTMLContent(results []*StageResult, metrics []*Sy
         </thead>
         <tbody>
 `, timestamp, processedData["timestamp"], processedData["total_stages"],
-	processedData["total_requests"], processedData["success_rate"],
-	processedData["avg_qps"], processedData["total_duration"], processedData["p99"])
+		processedData["total_requests"], processedData["success_rate"],
+		processedData["avg_qps"], processedData["total_duration"], processedData["p99"])
 
 	// 添加阶段数据行
 	for _, result := range results {
@@ -334,8 +334,8 @@ func (r *DefaultReporter) buildHTMLContent(results []*StageResult, metrics []*Sy
                 <td>%d</td>
             </tr>
 `, result.StageName, stats.TotalRequests, stats.SuccessRequests, stats.FailedRequests,
-		stats.SuccessRate, stats.AvgLatency, stats.P50, stats.P90, stats.P95, stats.P99,
-		stats.QPS, len(result.Data))
+			stats.SuccessRate, stats.AvgLatency, stats.P50, stats.P90, stats.P95, stats.P99,
+			stats.QPS, len(result.Data))
 	}
 
 	html += `
@@ -468,7 +468,7 @@ func (r *DefaultReporter) buildStressTestCharts(results []*StageResult) string {
 	}
 
 	var chartHTML strings.Builder
-	
+
 	chartHTML.WriteString(`
     <h2>压测数据可视化</h2>
     `)
@@ -483,7 +483,7 @@ func (r *DefaultReporter) buildStressTestCharts(results []*StageResult) string {
 		var latencies []float64
 		var timestamps []string
 		successCount := 0
-		
+
 		for j, res := range result.Results {
 			latencies = append(latencies, float64(res.Latency.Nanoseconds())/1e6) // 转换为毫秒
 			timestamps = append(timestamps, fmt.Sprintf("'请求%d'", j+1))
@@ -534,7 +534,9 @@ func (r *DefaultReporter) buildStressTestCharts(results []*StageResult) string {
 			if len(timestamps) > 50 { // 如果数据点太多，只显示部分标签
 				var labels []string
 				step := len(timestamps) / 50
-				if step < 1 { step = 1 }
+				if step < 1 {
+					step = 1
+				}
 				for j := 0; j < len(timestamps); j += step {
 					labels = append(labels, timestamps[j])
 				}
@@ -687,9 +689,9 @@ func (r *DefaultReporter) buildStressTestCharts(results []*StageResult) string {
         });
     </script>
     `, i, i, i, timestampLabels, latencyData,
-		i, i, i, successCount, len(result.Results)-successCount,
-		i, i, latencyData, i,
-		i, i, i, ms(result.Stats.P50), ms(result.Stats.P90), ms(result.Stats.P95), ms(result.Stats.P99)))
+			i, i, i, successCount, len(result.Results)-successCount,
+			i, i, latencyData, i,
+			i, i, i, ms(result.Stats.P50), ms(result.Stats.P90), ms(result.Stats.P95), ms(result.Stats.P99)))
 	}
 
 	return chartHTML.String()

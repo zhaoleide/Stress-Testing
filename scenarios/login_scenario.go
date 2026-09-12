@@ -76,13 +76,13 @@ func (s *LoginScenario) BeforeRun(config *framework.Config) error {
 func (s *LoginScenario) AfterRun(results []*framework.StageResult) error {
 	fmt.Println("清理登录压测环境...")
 	fmt.Printf("登录压测完成，共执行了 %d 个阶段\n", len(results))
-	
+
 	if len(results) >= 1 {
 		loginStats := results[0].Stats
-		fmt.Printf("登录压测汇总 - 成功率: %.2f%%, 平均延迟: %v, QPS: %.2f\n", 
+		fmt.Printf("登录压测汇总 - 成功率: %.2f%%, 平均延迟: %v, QPS: %.2f\n",
 			loginStats.SuccessRate, loginStats.AvgLatency, loginStats.QPS)
 	}
-	
+
 	return nil
 }
 
@@ -160,10 +160,10 @@ func (s *LoginStage) performLogin(loginURL, username, password string) (string, 
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
-	
+
 	// 空请求体
 	var reqBody []byte
-	
+
 	resp, err := client.Post(loginURL, "application/json", bytes.NewBuffer(reqBody))
 	if err != nil {
 		return "", fmt.Errorf("请求失败: %w", err)
@@ -193,14 +193,14 @@ func (s *LoginStage) performLoginWithContext(ctx context.Context, loginURL, user
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
-	
+
 	// 创建请求
 	req, err := http.NewRequestWithContext(ctx, "POST", loginURL, bytes.NewReader([]byte{}))
 	if err != nil {
 		return "", fmt.Errorf("创建请求失败: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	// 发送请求
 	resp, err := client.Do(req)
 	if err != nil {
