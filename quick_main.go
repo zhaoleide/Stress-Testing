@@ -1,3 +1,8 @@
+//go:build ignore
+
+// quick_main.go 是一个独立的快速压测脚本，通过 `go run quick_main.go` 运行。
+// 使用 build 忽略标签，避免与 main.go 的 main 函数在同包内冲突，
+// 从而保证 `go build ./...` / `go vet ./...` 正常通过。
 package main
 
 import (
