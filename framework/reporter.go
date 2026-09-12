@@ -12,18 +12,37 @@ import (
 // DefaultReporter 默认报告器
 type DefaultReporter struct {
 	outputDir string
+	formats   []string
 }
 
 // NewDefaultReporter 创建默认报告器
 func NewDefaultReporter() *DefaultReporter {
 	return &DefaultReporter{
 		outputDir: "reports",
+		formats:   []string{"html", "json", "csv"},
 	}
 }
 
 // SetOutputDir 设置输出目录
 func (r *DefaultReporter) SetOutputDir(dir string) {
 	r.outputDir = dir
+}
+
+// SetFormats limits which report files are written.
+func (r *DefaultReporter) SetFormats(formats []string) {
+	r.formats = append([]string{}, formats...)
+}
+
+func (r *DefaultReporter) wants(format string) bool {
+	if len(r.formats) == 0 {
+		return true
+	}
+	for _, f := range r.formats {
+		if strings.EqualFold(f, format) {
+			return true
+		}
+	}
+	return false
 }
 
 // GenerateReport 生成测试报告
@@ -34,26 +53,27 @@ func (r *DefaultReporter) GenerateReport(results []*StageResult, metrics []*Syst
 	}
 
 	timestamp := time.Now().Format("20060102_150405")
-	
-	// 生成JSON报告
-	if err := r.generateJSONReport(results, metrics, timestamp); err != nil {
-		return fmt.Errorf("生成JSON报告失败: %w", err)
-	}
 
-	// 生成HTML报告
-	if err := r.generateHTMLReport(results, metrics, timestamp); err != nil {
-		return fmt.Errorf("生成HTML报告失败: %w", err)
+	if r.wants("json") {
+		if err := r.generateJSONReport(results, metrics, timestamp); err != nil {
+			return fmt.Errorf("生成JSON报告失败: %w", err)
+		}
+		fmt.Printf("- 详细数据: report_%s.json\n", timestamp)
 	}
-
-	// 生成CSV统计报告
-	if err := r.generateCSVReport(results, timestamp); err != nil {
-		return fmt.Errorf("生成CSV报告失败: %w", err)
+	if r.wants("html") {
+		if err := r.generateHTMLReport(results, metrics, timestamp); err != nil {
+			return fmt.Errorf("生成HTML报告失败: %w", err)
+		}
+		fmt.Printf("- HTML报告: report_%s.html\n", timestamp)
+	}
+	if r.wants("csv") {
+		if err := r.generateCSVReport(results, timestamp); err != nil {
+			return fmt.Errorf("生成CSV报告失败: %w", err)
+		}
+		fmt.Printf("- 统计数据: stats_%s.csv\n", timestamp)
 	}
 
 	fmt.Printf("测试报告已生成到目录: %s\n", r.outputDir)
-	fmt.Printf("- 详细数据: report_%s.json\n", timestamp)
-	fmt.Printf("- HTML报告: report_%s.html\n", timestamp)
-	fmt.Printf("- 统计数据: stats_%s.csv\n", timestamp)
 
 	return nil
 }
@@ -91,21 +111,23 @@ func (r *DefaultReporter) generateHTMLReport(results []*StageResult, metrics []*
 func (r *DefaultReporter) generateCSVReport(results []*StageResult, timestamp string) error {
 	var csv strings.Builder
 	
-	// CSV头部
-	csv.WriteString("Stage,TotalRequests,SuccessRequests,FailedRequests,SuccessRate,AvgLatency(ms),MaxLatency(ms),MinLatency(ms),QPS,Duration(s)\n")
-	
-	// 数据行
+	csv.WriteString("Stage,TotalRequests,SuccessRequests,FailedRequests,SuccessRate,AvgLatency(ms),MinLatency(ms),MaxLatency(ms),P50(ms),P90(ms),P95(ms),P99(ms),QPS,Duration(s)\n")
+
 	for _, result := range results {
 		stats := result.Stats
-		csv.WriteString(fmt.Sprintf("%s,%d,%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+		csv.WriteString(fmt.Sprintf("%s,%d,%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
 			result.StageName,
 			stats.TotalRequests,
 			stats.SuccessRequests,
 			stats.FailedRequests,
 			stats.SuccessRate,
-			float64(stats.AvgLatency.Nanoseconds())/1e6,
-			float64(stats.MaxLatency.Nanoseconds())/1e6,
-			float64(stats.MinLatency.Nanoseconds())/1e6,
+			ms(stats.AvgLatency),
+			ms(stats.MinLatency),
+			ms(stats.MaxLatency),
+			ms(stats.P50),
+			ms(stats.P90),
+			ms(stats.P95),
+			ms(stats.P99),
 			stats.QPS,
 			result.Duration.Seconds(),
 		))
@@ -137,6 +159,12 @@ func (r *DefaultReporter) generateSummary(results []*StageResult) map[string]int
 			"success_rate": stats.SuccessRate,
 			"qps":          stats.QPS,
 			"avg_latency":  stats.AvgLatency.String(),
+			"p50":          stats.P50.String(),
+			"p90":          stats.P90.String(),
+			"p95":          stats.P95.String(),
+			"p99":          stats.P99.String(),
+			"status_counts": stats.StatusCounts,
+			"error_classes": stats.ErrorClasses,
 			"data_count":   len(result.Data),
 		}
 		summary["stages"] = append(summary["stages"].([]map[string]interface{}), stageInfo)
@@ -148,13 +176,29 @@ func (r *DefaultReporter) generateSummary(results []*StageResult) map[string]int
 		overallSuccessRate = float64(totalSuccess) / float64(totalRequests) * 100
 	}
 
+	avgQPS := 0.0
+	if totalDuration > 0 {
+		avgQPS = float64(totalRequests) / totalDuration.Seconds()
+	}
+	var allResults []Result
+	for _, result := range results {
+		allResults = append(allResults, result.Results...)
+	}
+	overallStats := CalculateStats(allResults, totalDuration)
+
 	summary["overall"] = map[string]interface{}{
-		"total_requests":    totalRequests,
-		"success_requests":  totalSuccess,
-		"failed_requests":   totalFailed,
-		"success_rate":      overallSuccessRate,
-		"total_duration":    totalDuration,
-		"avg_qps":          float64(totalSuccess) / totalDuration.Seconds(),
+		"total_requests":   totalRequests,
+		"success_requests": totalSuccess,
+		"failed_requests":  totalFailed,
+		"success_rate":     overallSuccessRate,
+		"total_duration":   totalDuration,
+		"avg_qps":          avgQPS,
+		"p50":              overallStats.P50.String(),
+		"p90":              overallStats.P90.String(),
+		"p95":              overallStats.P95.String(),
+		"p99":              overallStats.P99.String(),
+		"status_counts":    overallStats.StatusCounts,
+		"error_classes":    overallStats.ErrorClasses,
 	}
 
 	return summary
@@ -174,8 +218,16 @@ func (r *DefaultReporter) processDataForHTML(results []*StageResult, timestamp s
 	data["success_rate"] = fmt.Sprintf("%.1f%%", overall["success_rate"].(float64))
 	data["avg_qps"] = fmt.Sprintf("%.1f", overall["avg_qps"].(float64))
 	data["total_duration"] = overall["total_duration"].(time.Duration).String()
-	
+	data["p50"] = fmt.Sprint(overall["p50"])
+	data["p90"] = fmt.Sprint(overall["p90"])
+	data["p95"] = fmt.Sprint(overall["p95"])
+	data["p99"] = fmt.Sprint(overall["p99"])
+
 	return data
+}
+
+func ms(d time.Duration) float64 {
+	return float64(d.Nanoseconds()) / 1e6
 }
 
 // buildHTMLContent 构建HTML内容
@@ -234,6 +286,10 @@ func (r *DefaultReporter) buildHTMLContent(results []*StageResult, metrics []*Sy
             <h3>总耗时</h3>
             <div class="value">%s</div>
         </div>
+        <div class="metric">
+            <h3>P99</h3>
+            <div class="value">%s</div>
+        </div>
     </div>
 
     <h2>阶段详情</h2>
@@ -246,14 +302,18 @@ func (r *DefaultReporter) buildHTMLContent(results []*StageResult, metrics []*Sy
                 <th>失败请求</th>
                 <th>成功率</th>
                 <th>平均延迟</th>
+                <th>P50</th>
+                <th>P90</th>
+                <th>P95</th>
+                <th>P99</th>
                 <th>QPS</th>
                 <th>数据产出</th>
             </tr>
         </thead>
         <tbody>
-`, timestamp, processedData["timestamp"], processedData["total_stages"], 
-	processedData["total_requests"], processedData["success_rate"], 
-	processedData["avg_qps"], processedData["total_duration"])
+`, timestamp, processedData["timestamp"], processedData["total_stages"],
+	processedData["total_requests"], processedData["success_rate"],
+	processedData["avg_qps"], processedData["total_duration"], processedData["p99"])
 
 	// 添加阶段数据行
 	for _, result := range results {
@@ -266,17 +326,23 @@ func (r *DefaultReporter) buildHTMLContent(results []*StageResult, metrics []*Sy
                 <td class="failed">%d</td>
                 <td>%.2f%%</td>
                 <td>%v</td>
+                <td>%v</td>
+                <td>%v</td>
+                <td>%v</td>
+                <td>%v</td>
                 <td>%.2f</td>
                 <td>%d</td>
             </tr>
 `, result.StageName, stats.TotalRequests, stats.SuccessRequests, stats.FailedRequests,
-		stats.SuccessRate, stats.AvgLatency, stats.QPS, len(result.Data))
+		stats.SuccessRate, stats.AvgLatency, stats.P50, stats.P90, stats.P95, stats.P99,
+		stats.QPS, len(result.Data))
 	}
 
 	html += `
         </tbody>
     </table>
 `
+	html += r.buildClassificationTables(results)
 
 	// 添加压测数据图表
 	html += r.buildStressTestCharts(results)
@@ -284,12 +350,6 @@ func (r *DefaultReporter) buildHTMLContent(results []*StageResult, metrics []*Sy
 	// 添加系统监控图表
 	if len(metrics) > 0 {
 		html += r.buildSystemMetricsChart(metrics)
-	} else {
-		html += `
-    <div class="chart-container">
-        <h2>系统监控</h2>
-        <p>系统监控未启用。要启用监控，请在main.go中设置 MonitorConfig.Enabled = true 并配置SSH连接信息。</p>
-    </div>`
 	}
 
 	html += `
@@ -297,6 +357,54 @@ func (r *DefaultReporter) buildHTMLContent(results []*StageResult, metrics []*Sy
 </html>`
 
 	return html
+}
+
+func (r *DefaultReporter) buildClassificationTables(results []*StageResult) string {
+	var b strings.Builder
+	b.WriteString(`
+    <h2>状态码与错误分类</h2>
+    <table>
+        <thead>
+            <tr><th>阶段</th><th>状态码分布</th><th>错误分类</th></tr>
+        </thead>
+        <tbody>
+`)
+	for _, result := range results {
+		if result.Stats == nil {
+			continue
+		}
+		b.WriteString(fmt.Sprintf("            <tr><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+			result.StageName,
+			formatIntMap(result.Stats.StatusCounts),
+			formatStringMap(result.Stats.ErrorClasses),
+		))
+	}
+	b.WriteString(`        </tbody>
+    </table>
+`)
+	return b.String()
+}
+
+func formatIntMap(m map[int]int) string {
+	if len(m) == 0 {
+		return "-"
+	}
+	parts := make([]string, 0, len(m))
+	for k, v := range m {
+		parts = append(parts, fmt.Sprintf("%d:%d", k, v))
+	}
+	return strings.Join(parts, ", ")
+}
+
+func formatStringMap(m map[string]int) string {
+	if len(m) == 0 {
+		return "-"
+	}
+	parts := make([]string, 0, len(m))
+	for k, v := range m {
+		parts = append(parts, fmt.Sprintf("%s:%d", k, v))
+	}
+	return strings.Join(parts, ", ")
 }
 
 // buildSystemMetricsChart 构建系统监控图表
@@ -367,7 +475,7 @@ func (r *DefaultReporter) buildStressTestCharts(results []*StageResult) string {
 
 	// 为每个阶段生成图表
 	for i, result := range results {
-		if len(result.Results) == 0 {
+		if len(result.Results) == 0 || result.Stats == nil {
 			continue
 		}
 
@@ -406,7 +514,11 @@ func (r *DefaultReporter) buildStressTestCharts(results []*StageResult) string {
         <h3>%s - 响应时间直方图</h3>
         <canvas id="histogramChart%d" width="800" height="300"></canvas>
     </div>
-    `, result.StageName, i))
+    <div class="chart-container">
+        <h3>%s - 延迟分位数</h3>
+        <canvas id="percentileChart%d" width="800" height="240"></canvas>
+    </div>
+    `, result.StageName, i, result.StageName, i))
 
 		// JavaScript代码
 		latencyData := strings.Join(func() []string {
@@ -549,10 +661,35 @@ func (r *DefaultReporter) buildStressTestCharts(results []*StageResult) string {
                 }
             }
         });
+
+        const percentileCtx%d = document.getElementById('percentileChart%d').getContext('2d');
+        new Chart(percentileCtx%d, {
+            type: 'bar',
+            data: {
+                labels: ['P50', 'P90', 'P95', 'P99'],
+                datasets: [{
+                    label: '延迟 (ms)',
+                    data: [%.2f, %.2f, %.2f, %.2f],
+                    backgroundColor: 'rgba(255, 159, 64, 0.6)',
+                    borderColor: 'rgba(255, 159, 64, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: '延迟 (ms)' }
+                    }
+                }
+            }
+        });
     </script>
-    `, i, i, i, timestampLabels, latencyData, 
+    `, i, i, i, timestampLabels, latencyData,
 		i, i, i, successCount, len(result.Results)-successCount,
-		i, i, latencyData, i))
+		i, i, latencyData, i,
+		i, i, i, ms(result.Stats.P50), ms(result.Stats.P90), ms(result.Stats.P95), ms(result.Stats.P99)))
 	}
 
 	return chartHTML.String()

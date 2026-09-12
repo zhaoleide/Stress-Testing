@@ -109,3 +109,36 @@ type noopReporter struct{}
 
 func (n *noopReporter) GenerateReport([]*StageResult, []*SystemMetrics) error { return nil }
 func (n *noopReporter) ExportVegetaConfig([]interface{}, string) error        { return nil }
+
+type spyMonitor struct {
+	started atomic.Bool
+}
+
+func (m *spyMonitor) Start(*MonitorConfig) error { m.started.Store(true); return nil }
+func (m *spyMonitor) Stop() error                { return nil }
+func (m *spyMonitor) GetMetrics() []*SystemMetrics {
+	return nil
+}
+
+func TestEngineDoesNotStartMonitorWhenDisabled(t *testing.T) {
+	stage := &countingStage{name: "mon"}
+	engine := NewEngine(&stubScenario{stages: []Stage{stage}})
+	mon := &spyMonitor{}
+	engine.SetMonitor(mon)
+	engine.SetReporter(&noopReporter{})
+	cfg := &Config{
+		Mode:        LoadModeRequests,
+		Requests:    1,
+		Concurrency: 1,
+		MonitorConfig: &MonitorConfig{
+			Enabled: false,
+			Host:    "should-not-connect.example.com",
+		},
+	}
+	if err := engine.Run(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if mon.started.Load() {
+		t.Fatal("monitor should stay off when enabled=false")
+	}
+}
