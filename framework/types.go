@@ -5,13 +5,42 @@ import (
 	"time"
 )
 
+const (
+	LoadModeRequests = "requests"
+	LoadModeDuration = "duration"
+)
+
 // Config 压测配置
 type Config struct {
-	UserCount     int                    `json:"user_count"`     // 用户总数
+	UserCount     int                    `json:"user_count"`     // 兼容旧字段：请求数
+	Requests      int                    `json:"requests"`       // 固定请求量（mode=requests）
 	Concurrency   int                    `json:"concurrency"`    // 并发数
-	Duration      time.Duration          `json:"duration"`       // 持续时间
+	Duration      time.Duration          `json:"duration"`       // 持续时间（mode=duration）
+	Mode          string                 `json:"mode"`           // requests | duration
+	Rate          float64                `json:"rate"`           // 可选目标 RPS
 	MonitorConfig *MonitorConfig         `json:"monitor_config"` // 监控配置
+	ReportDir     string                 `json:"report_dir"`     // 报告输出目录
+	ReportFormats []string               `json:"report_formats"` // html, json, csv
 	Params        map[string]interface{} `json:"params"`         // 自定义参数
+}
+
+// RequestCount returns the planned request count for requests mode.
+func (c *Config) RequestCount() int {
+	if c == nil {
+		return 0
+	}
+	if c.Requests > 0 {
+		return c.Requests
+	}
+	return c.UserCount
+}
+
+// LoadMode returns the effective load mode, defaulting to requests.
+func (c *Config) LoadMode() string {
+	if c == nil || c.Mode == "" {
+		return LoadModeRequests
+	}
+	return c.Mode
 }
 
 // MonitorConfig 监控配置
@@ -35,11 +64,13 @@ type Context struct {
 
 // Result 执行结果
 type Result struct {
-	Success   bool          `json:"success"`   // 是否成功
-	Latency   time.Duration `json:"latency"`   // 响应时间
-	Error     string        `json:"error"`     // 错误信息
-	Data      interface{}   `json:"data"`      // 返回数据
-	Timestamp time.Time     `json:"timestamp"` // 时间戳
+	Success    bool          `json:"success"`     // 是否成功
+	Latency    time.Duration `json:"latency"`     // 响应时间
+	Error      string        `json:"error"`       // 错误信息
+	ErrorClass string        `json:"error_class"` // timeout / connection / http_4xx / http_5xx / other
+	StatusCode int           `json:"status_code"` // HTTP 状态码
+	Data       interface{}   `json:"data"`        // 返回数据
+	Timestamp  time.Time     `json:"timestamp"`   // 时间戳
 }
 
 // StageResult 阶段结果

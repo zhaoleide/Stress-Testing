@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"stress-testing/framework"
 )
 
 const (
@@ -196,4 +198,32 @@ func (m MonitorConfig) validate() error {
 		return fmt.Errorf("monitor.interval must be greater than 0")
 	}
 	return nil
+}
+
+// ToFrameworkConfig maps file configuration onto the engine Config.
+func (c *FileConfig) ToFrameworkConfig() *framework.Config {
+	if c == nil {
+		return &framework.Config{}
+	}
+	cfg := &framework.Config{
+		UserCount:     c.Load.Requests,
+		Requests:      c.Load.Requests,
+		Concurrency:   c.Load.Concurrency,
+		Duration:      c.Load.Duration,
+		Mode:          c.Load.Mode,
+		Rate:          c.Load.Rate,
+		ReportDir:     c.Report.Dir,
+		ReportFormats: append([]string{}, c.Report.Formats...),
+		Params:        map[string]interface{}{},
+		MonitorConfig: &framework.MonitorConfig{
+			Enabled:    c.Monitor.Enabled,
+			Host:       c.Monitor.Host,
+			Username:   c.Monitor.Username,
+			Password:   c.Monitor.Password,
+			PrivateKey: c.Monitor.PrivateKey,
+			Interval:   c.Monitor.Interval,
+			Metrics:    append([]string{}, c.Monitor.Metrics...),
+		},
+	}
+	return cfg
 }
